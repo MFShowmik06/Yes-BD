@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YES BD - Seller Messages</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=yes.com" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <!-- Navbar -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-green-700 main-heading">YES BD</h1>
+      <h2 class="text-xl font-bold text-green-700 sub-heading">Real Estate</h2>
+      <nav class="space-x-4">
+        <a href="/seller_dashboard.html" class="hover:text-green-600">Dashboard</a>
+        <a href="/logout" class="hover:text-green-600">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Messages Section -->
+  <main class="max-w-7xl mx-auto py-12 px-4">
+    <h2 class="text-3xl font-bold text-center text-green-800 mb-6">My Messages</h2>
+    <div class="bg-white p-8 rounded-lg shadow-md">
+      <div class="flex flex-col md:flex-row gap-6">
+        <!-- Inbox List -->
+        <div class="w-full md:w-1/3 bg-gray-100 p-4 rounded-lg">
+          <h4 class="font-semibold text-lg mb-4">Inbox</h4>
+          <ul id="messages-inbox-list" class="space-y-2">
+            <!-- Message previews will be loaded here -->
+          </ul>
+        </div>
+
+        <!-- Chat Thread -->
+        <div class="flex-1 bg-gray-100 p-4 rounded-lg flex flex-col">
+          <h4 class="font-semibold text-lg mb-4">Select a conversation</h4>
+          <div id="chat-thread-view" class="flex-1 overflow-y-auto bg-gray-50 p-4 rounded-lg mb-4">
+            <!-- Chat messages will be loaded here -->
+          </div>
+          <div class="flex">
+            <input type="text" id="message-input" placeholder="Type your message..." class="flex-1 px-4 py-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-green-600">
+            <button id="send-message-btn" class="bg-green-700 text-white px-6 py-2 rounded-r-lg hover:bg-green-800">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white text-center py-4 shadow mt-8">
+    <p class="text-gray-600">© 2025 YES BD. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const messagesInboxList = document.getElementById('messages-inbox-list');
+      const chatThreadView = document.getElementById('chat-thread-view');
+      const messageInput = document.getElementById('message-input');
+      const sendMessageBtn = document.getElementById('send-message-btn');
+
+      let currentUserId = null; // Will be fetched from /api/user-session
+      let selectedReceiverId = null;
+
+      // Helper function to fetch data
+      async function fetchData(url, method = 'GET', body = null) {
+        try {
+          const options = { method, credentials: 'include' };
+          if (body) {
+            options.headers = { 'Content-Type': 'application/json' };
+            options.body = JSON.stringify(body);
+          }
+          const response = await fetch(url, options);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        } catch (error) {
+          console.error('Fetch error:', error);
+          alert(`Error: ${error.message}`);
+          return null;
+        }
+      }
+
+      // Fetch current user to determine sender/receiver
+      const sessionRes = await fetchData('/api/user-session');
+      if (sessionRes && sessionRes.loggedIn) {
+        currentUserId = sessionRes.user.id;
+      } else {
+        window.location.href = '/login.html'; // Redirect if not logged in
+        return;
+      }
+
+      async function fetchMessages() {
+        if (!currentUserId) return; // Ensure currentUserId is set
+
+        try {
+          const messages = await fetchData('/api/seller/messages');
+          messagesInboxList.innerHTML = '';
+          const conversations = {};
+
+          messages.forEach(msg => {
+            const partnerId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
+            const partnerUsername = msg.sender_id === currentUserId ? msg.receiver_username : msg.sender_username;
+
+            if (!conversations[partnerId]) {
+              conversations[partnerId] = {
+                partnerName: partnerUsername,
+                unreadCount: 0,
+                lastMessage: msg.message,
+                messages: [],
+                partnerId: partnerId
+              };
+            }
+            if (msg.receiver_id === currentUserId && !msg.is_read) {
+              conversations[partnerId].unreadCount++;
+            }
+            conversations[partnerId].messages.push(msg);
+          });
+
+          if (Object.keys(conversations).length === 0) {
+            messagesInboxList.innerHTML = '<li class="py-2 px-4 text-center text-gray-500">No messages yet.</li>';
+          } else {
+            for (const partnerId in conversations) {
+              const convo = conversations[partnerId];
+              const unreadSpan = convo.unreadCount > 0 ? `<span class="text-xs bg-red-500 text-white px-2 py-1 rounded-full ml-2">${convo.unreadCount} New</span>` : '';
+              const listItem = `
+                <li class="flex items-center p-3 rounded-lg hover:bg-gray-100 cursor-pointer" data-partner-id="${convo.partnerId}">
+                  <div class="flex-grow">
+                    <p class="font-semibold">${convo.partnerName} ${unreadSpan}</p>
+                    <p class="text-sm text-gray-600 truncate">${convo.lastMessage}</p>
+                  </div>
+                </li>
+              `;
+              messagesInboxList.innerHTML += listItem;
+            }
+          }
+
+          // Event listener for inbox items to load chat thread
+          messagesInboxList.querySelectorAll('li').forEach(item => {
+            item.addEventListener('click', (e) => {
+              const partnerId = e.currentTarget.dataset.partnerId;
+              selectedReceiverId = partnerId;
+              const convo = conversations[partnerId];
+              displayChatThread(convo.messages, convo.partnerName);
+            });
+          });
+
+          // Display the first conversation by default if available
+          const firstPartnerId = Object.keys(conversations)[0];
+          if (firstPartnerId) {
+            const firstConvo = conversations[firstPartnerId];
+            selectedReceiverId = firstPartnerId;
+            displayChatThread(firstConvo.messages, firstConvo.partnerName);
+          } else {
+            chatThreadView.innerHTML = '<p class="text-gray-500">Select a conversation from the inbox.</p>';
+          }
+
+        } catch (error) {
+          console.error('Error fetching messages:', error);
+          alert(`Failed to load messages: ${error.message}`);
+        }
+      }
+
+      function displayChatThread(messages, partnerName) {
+        chatThreadView.innerHTML = '';
+        const chatHeader = document.querySelector('#chat-thread-view').previousElementSibling; // Assuming h4 is sibling
+        chatHeader.textContent = `Chat with ${partnerName}`;
+
+        messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        messages.forEach(msg => {
+          const isSender = msg.sender_id === currentUserId;
+          const alignmentClass = isSender ? 'justify-end' : 'justify-start';
+          const bgColorClass = isSender ? 'bg-green-200' : 'bg-gray-200';
+
+          const messageBubble = `
+            <div class="flex ${alignmentClass} mb-2">
+              <div class="${bgColorClass} p-3 rounded-lg max-w-xs">
+                <p class="text-sm">${msg.message}</p>
+                <span class="text-xs text-gray-500">${new Date(msg.created_at).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          `;
+          chatThreadView.innerHTML += messageBubble;
+        });
+        chatThreadView.scrollTop = chatThreadView.scrollHeight;
+      }
+
+      sendMessageBtn.addEventListener('click', async () => {
+        const messageContent = messageInput.value.trim();
+        const propertyId = null; // For now, messages are not tied to a specific property from this UI
+
+        if (!messageContent) {
+          alert('Please enter a message.');
+          return;
+        }
+        if (!selectedReceiverId) {
+          alert('Please select a recipient from the inbox.');
+          return;
+        }
+
+        try {
+          const result = await fetchData('/api/seller/messages', 'POST', {
+            receiver_id: selectedReceiverId,
+            property_id: propertyId,
+            message: messageContent
+          });
+
+          if (result) {
+            messageInput.value = '';
+            fetchMessages(); // Re-fetch messages to update the view
+          }
+        } catch (error) {
+          console.error('Error sending message:', error);
+          alert(`Failed to send message: ${error.message}`);
+        }
+      });
+
+      fetchMessages();
+    });
+  </script>
+
+</body>
+</html>

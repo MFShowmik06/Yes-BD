@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YES BD - Seller Booking Requests</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=yes.com" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <!-- Navbar -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-green-700 main-heading">YES BD</h1>
+      <h2 class="text-xl font-bold text-green-700 sub-heading">Real Estate</h2>
+      <nav class="space-x-4">
+        <a href="/seller_dashboard.html" class="hover:text-green-600">Dashboard</a>
+        <a href="/logout" class="hover:text-green-600">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Booking Requests Section -->
+  <main class="max-w-7xl mx-auto py-12 px-4">
+    <h2 class="text-3xl font-bold text-center text-green-800 mb-6">Booking Requests</h2>
+
+    <div class="bg-white p-8 rounded-lg shadow-md">
+      <table class="min-w-full bg-white">
+        <thead>
+          <tr>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Property</th>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Buyer</th>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Requested Date</th>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Message</th>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Status</th>
+            <th class="py-2 px-4 border-b border-gray-200 text-left text-sm font-semibold text-gray-600">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="booking-requests-table-body">
+          <!-- Booking requests will be loaded here -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white text-center py-4 shadow mt-8">
+    <p class="text-gray-600">© 2025 YES BD. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const bookingRequestsTableBody = document.getElementById('booking-requests-table-body');
+
+      async function fetchBookingRequests() {
+        try {
+          const response = await fetch('/api/seller/booking-requests', { credentials: 'include' });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Failed to fetch booking requests');
+          }
+          const requests = await response.json();
+
+          bookingRequestsTableBody.innerHTML = ''; // Clear existing rows
+
+          if (requests.length === 0) {
+            bookingRequestsTableBody.innerHTML = '<tr><td colspan="6" class="py-2 px-4 text-center text-gray-500">No booking requests.</td></tr>';
+            return;
+          }
+
+          requests.forEach(request => {
+            const row = `
+              <tr>
+                <td class="py-2 px-4 border-b">${request.property_title}</td>
+                <td class="py-2 px-4 border-b">${request.buyer_username} (${request.buyer_email})</td>
+                <td class="py-2 px-4 border-b">${new Date(request.booking_date).toLocaleString()}</td>
+                <td class="py-2 px-4 border-b">${request.message || 'N/A'}</td>
+                <td class="py-2 px-4 border-b"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${request.status === 'approved' ? 'bg-green-100 text-green-800' : request.status === 'declined' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">${request.status}</span></td>
+                <td class="py-2 px-4 border-b">
+                  ${request.status === 'pending' ? `
+                    <button class="approve-btn bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded text-xs mr-2" data-id="${request.id}">Approve</button>
+                    <button class="decline-btn bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded text-xs" data-id="${request.id}">Decline</button>
+                  ` : ''}
+                </td>
+              </tr>
+            `;
+            bookingRequestsTableBody.innerHTML += row;
+          });
+
+          // Add event listeners for approve/decline buttons
+          document.querySelectorAll('.approve-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+              const requestId = e.target.dataset.id;
+              if (confirm('Are you sure you want to approve this booking request?')) {
+                try {
+                  const result = await fetch(`/api/seller/booking-requests/${requestId}/approve`, { method: 'PUT', credentials: 'include' });
+                  if (result.ok) {
+                    alert('Booking request approved!');
+                    fetchBookingRequests(); // Refresh list
+                  } else {
+                    const errorText = await result.text();
+                    alert(`Failed to approve: ${errorText}`);
+                  }
+                } catch (error) {
+                  console.error('Error approving booking:', error);
+                  alert('An error occurred while approving the booking.');
+                }
+              }
+            });
+          });
+
+          document.querySelectorAll('.decline-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+              const requestId = e.target.dataset.id;
+              if (confirm('Are you sure you want to decline this booking request?')) {
+                try {
+                  const result = await fetch(`/api/seller/booking-requests/${requestId}/decline`, { method: 'PUT', credentials: 'include' });
+                  if (result.ok) {
+                    alert('Booking request declined!');
+                    fetchBookingRequests(); // Refresh list
+                  } else {
+                    const errorText = await result.text();
+                    alert(`Failed to decline: ${errorText}`);
+                  }
+                } catch (error) {
+                  console.error('Error declining booking:', error);
+                  alert('An error occurred while declining the booking.');
+                }
+              }
+            });
+          });
+
+        } catch (error) {
+          console.error('Error loading booking requests:', error);
+          bookingRequestsTableBody.innerHTML = `<tr><td colspan="6" class="py-2 px-4 text-red-500 text-center">Error loading requests: ${error.message}</td></tr>`;
+        }
+      }
+
+      fetchBookingRequests();
+    });
+  </script>
+
+</body>
+</html>

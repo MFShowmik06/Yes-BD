@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YES BD - My Listings</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=yes.com" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <!-- Navbar -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-green-700 main-heading">YES BD</h1>
+      <h2 class="text-xl font-bold text-green-700 sub-heading">Real Estate</h2>
+      <nav class="space-x-4">
+        <a href="/seller_dashboard.html" class="hover:text-green-600">Dashboard</a>
+        <a href="/logout" class="hover:text-green-600">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- My Listings Section -->
+  <main class="max-w-7xl mx-auto py-12 px-4">
+    <h2 class="text-3xl font-bold text-center text-green-800 mb-6">My Listings</h2>
+    <div id="listings-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      <!-- Listings will be loaded here -->
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white text-center py-4 shadow mt-8">
+    <p class="text-gray-600">© 2025 YES BD. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const listingsContainer = document.getElementById('listings-container');
+
+      // Function to fetch and display listings
+      async function fetchListings() {
+        try {
+          const response = await fetch('/api/my-properties', { credentials: 'include' });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Failed to fetch listings');
+          }
+          const properties = await response.json();
+
+          listingsContainer.innerHTML = ''; // Clear previous listings
+
+          if (properties.length === 0) {
+            listingsContainer.innerHTML = '<p class="text-gray-700 col-span-full text-center">You have no listings yet.</p>';
+            return;
+          }
+
+          properties.forEach(property => {
+            const imageUrl = property.images ? property.images.split(',')[0] : 'https://via.placeholder.com/400x250';
+            const listingCard = `
+              <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <img src="${imageUrl}" alt="Property Image" class="w-full h-48 object-cover">
+                <div class="p-4">
+                  <h3 class="text-xl font-bold mb-2">${property.title}</h3>
+                  <p class="text-gray-600 mb-1">${property.location}</p>
+                  <p class="text-green-700 font-bold text-lg mb-2">৳ ${property.price}</p>
+                  <p class="text-sm text-gray-500">Status: <span class="font-semibold">${property.status}</span></p>
+                  <div class="mt-4 flex justify-end space-x-2">
+                    <a href="/edit-property.html?id=${property.id}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Edit Listing</a>
+                    <!-- Add delete button here if needed -->
+                  </div>
+                </div>
+              </div>
+            `;
+            listingsContainer.innerHTML += listingCard;
+          });
+
+        } catch (error) {
+          console.error('Error loading listings:', error);
+          listingsContainer.innerHTML = `<p class="text-red-500 text-center col-span-full">Error loading listings: ${error.message}</p>`;
+        }
+      }
+
+      fetchListings();
+    });
+  </script>
+
+</body>
+</html>

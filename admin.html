@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YES BD - Admin</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=yes.com" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <!-- Navbar -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto p-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-green-700 main-heading">YES BD</h1>
+      <h2 class="text-xl font-bold text-green-700 sub-heading">Real Estate</h2>
+      <nav class="space-x-4">
+        <a href="/index.html" class="hover:text-green-600">Home</a>
+        <a href="/logout" class="hover:text-green-600">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Admin Dashboard -->
+  <main class="max-w-7xl mx-auto py-12 px-4">
+    <h2 class="text-3xl font-bold text-center text-green-800 mb-6">Admin Dashboard</h2>
+
+    <!-- Navigation Buttons -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <a href="/admin_users.html" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg shadow-md text-center text-xl">View Users</a>
+      <a href="/admin_pending_listings.html" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-lg shadow-md text-center text-xl">View Pending Listings</a>
+      <a href="/admin_active_listings.html" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg shadow-md text-center text-xl">View Active Listings</a>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    
+    
+
+    <!-- Recent Activity Feed -->
+    <div class="bg-white p-8 rounded-lg shadow-md">
+      <h3 class="text-2xl font-bold text-green-800 mb-6">Recent Activity</h3>
+      <div id="activity-feed" class="space-y-4">
+        <!-- Activities will be loaded here -->
+        <p class="text-gray-600">Loading recent activity...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white text-center py-4 shadow mt-8">
+    <p class="text-gray-600">© 2025 YES BD. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const sessionRes = await fetch('/api/user-session');
+      const session = await sessionRes.json();
+
+      if (!session.loggedIn || session.user.user_type !== 'admin') {
+        window.location.href = '/login';
+        return;
+      }
+
+      // Fetch Quick Stats
+      try {
+        const [pendingListingsRes, approvedListingsRes, totalUsersRes, pendingReportsRes] = await Promise.all([
+          fetch('/api/admin/pending-listings', { credentials: 'include' }),
+          fetch('/api/admin/approved-listings', { credentials: 'include' }),
+          fetch('/api/admin/total-users', { credentials: 'include' }),
+          fetch('/api/admin/pending-reports', { credentials: 'include' })
+        ]);
+
+        const pendingListings = await pendingListingsRes.json();
+        const approvedListings = await approvedListingsRes.json();
+        const totalUsers = await totalUsersRes.json();
+        const pendingReports = await pendingReportsRes.json();
+
+        document.getElementById('pending-listings').textContent = pendingListings.count;
+        document.getElementById('approved-listings').textContent = approvedListings.count;
+        document.getElementById('total-users').textContent = totalUsers.count;
+        document.getElementById('pending-reports').textContent = pendingReports.count;
+
+      } catch (error) {
+        console.error('Error fetching recent activity:', error);
+      }
+    });
+  </script>
+
+</body>
+</html>
